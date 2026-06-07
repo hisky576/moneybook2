@@ -120,8 +120,7 @@ function genTransactions() {
 const SAMPLE_TX = genTransactions();
 
 // monthly budgets per expense category (NT$)
-const DEFAULT_BUDGETS = {
-  food: 9000, transit: 2500, shop: 4000, home: 18000, fun: 2000,
+const DEFAULT_BUDGETS = {  food: 9000, transit: 2500, shop: 4000, home: 18000, fun: 2000,
   health: 1500, edu: 2000, travel: 3000, comm: 1200, other: 1500,
 };
 
@@ -157,6 +156,9 @@ function monthsInData(txs) {
   return [...set].sort().reverse();
 }
 
+// quick-fill note tags (used in the add-record modal)
+const DEFAULT_TAGS = ["午餐", "晚餐", "早餐", "咖啡", "飲料", "外送", "加油", "停車", "捍運", "超市", "網購", "日用品", "薬局", "房租", "水電費", "薪水"];
+
 const THEMES = [
   { id: "midnight", name: "午夜藍", dot: "#38bdf8", bg: "#0a1020" },
   { id: "carbon",   name: "石墨黑", dot: "#f0b429", bg: "#0c0c0e" },
@@ -165,7 +167,7 @@ const THEMES = [
 
 Object.assign(window, {
   CATEGORIES, CAT_MAP, EXPENSE_CATS, INCOME_CATS,
-  SAMPLE_TX, DEFAULT_BUDGETS, THEMES,
+  SAMPLE_TX, DEFAULT_BUDGETS, DEFAULT_TAGS, THEMES,
   fmtNTD, fmtSigned, fmtCompact, monthKey, yearKey, labelMonth, shortMonth,
   fmtDateLong, todayISO, sum, groupSum, monthsInData, WEEKDAYS,
 });

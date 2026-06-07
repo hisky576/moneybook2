@@ -46,6 +46,8 @@ const ICON_PATHS = {
   power: <><path d="M12 4v8"/><path d="M7.5 7a7 7 0 1 0 9 0"/></>,
   circle: <circle cx="12" cy="12" r="8"/>,
   checkCircle: <><circle cx="12" cy="12" r="8"/><path d="M8.5 12l2.4 2.4L15.5 9.5"/></>,
+  vault: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="11" cy="12" r="3.4"/><path d="M11 12l1.8 1.8"/><path d="M17 9.5v5"/></>,
+  piggy: <><path d="M4 13a6 5 0 0 1 6-5h3a6 5 0 0 1 6 5 6 5 0 0 1-2 3.6V19h-2.5l-.6-1.3a8 8 0 0 1-2.8 0L13.5 19H11v-2.4A6 5 0 0 1 9 13"/><circle cx="9.5" cy="11.5" r=".6"/><path d="M13 8.2 13 6"/></>,
 };
 
 function Icon({ name, size = 20, stroke = 2, fill = "none", style, className }) {

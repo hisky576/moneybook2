@@ -59,13 +59,13 @@ function App() {
 
   // ---- data ----
   const L = useLedger(ready);
-  const { txs, budgets, setBudgets, recurring, setRecurring, todos, setTodos } = L;
+  const { txs, budgets, setBudgets, recurring, setRecurring, todos, setTodos, tags, setTags } = L;
 
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); save(LS.theme, theme); }, [theme]);
 
   const openAdd = () => setModal({ tx: null });
   const openEdit = (tx) => setModal({ tx });
-  const saveTx = (data) => { if (data.id) L.updateTx(data); else L.addTx(data); setModal(null); };
+  const saveTx = (data, keepOpen) => { if (data.id) L.updateTx(data); else L.addTx(data); if (!keepOpen) setModal(null); };
   const delTx = (tx) => L.delTx(tx);
 
   const exportCSV = (scope) => {
@@ -147,7 +147,7 @@ function App() {
         ))}
       </nav>
 
-      {modal && <TxModal initial={modal.tx} onSave={saveTx} onClose={() => setModal(null)} onDelete={modal.tx ? () => { delTx(modal.tx); setModal(null); } : null} />}
+      {modal && <TxModal initial={modal.tx} tags={tags} setTags={setTags} onSave={saveTx} onClose={() => setModal(null)} onDelete={modal.tx ? () => { delTx(modal.tx); setModal(null); } : null} />}
     </div>
   );
 }
@@ -360,12 +360,15 @@ function TopBar({ title, mk, setMk, onAdd }) {
 }
 
 // ---------- Add / Edit modal ----------
-function TxModal({ initial, onSave, onClose, onDelete }) {
+function TxModal({ initial, tags = [], setTags, onSave, onClose, onDelete }) {
   const [type, setType] = useState(initial?.type || "expense");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
   const [catId, setCatId] = useState(initial?.catId || "");
   const [date, setDate] = useState(initial?.date || todayISO);
   const [note, setNote] = useState(initial?.note || "");
+  const [editTags, setEditTags] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const amtRef = useRef(null);
   const cats = type === "income" ? INCOME_CATS : EXPENSE_CATS;
 
   useEffect(() => {
@@ -373,26 +376,35 @@ function TxModal({ initial, onSave, onClose, onDelete }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  // reset category if switching type makes it invalid
   useEffect(() => { if (catId && !cats.find(c => c.id === catId)) setCatId(""); }, [type]);
 
   const amt = Math.round(+amount || 0);
   const valid = amt > 0 && catId;
-  const submit = () => { if (!valid) return; onSave({ id: initial?.id, type, amount: amt, catId, date, note: note.trim() || CAT_MAP[catId].name }); };
+  const submit = (keepOpen) => {
+    if (!valid) return;
+    onSave({ id: initial?.id, type, amount: amt, catId, date, note: note.trim() || CAT_MAP[catId].name }, keepOpen);
+    if (keepOpen) {
+      setAmount(""); setNote("");
+      setFlash(true); setTimeout(() => setFlash(false), 1200);
+      if (amtRef.current) amtRef.current.focus();
+    }
+  };
+  const noteTrim = note.trim();
+  const addTag = () => { if (noteTrim && !tags.includes(noteTrim)) setTags([...tags, noteTrim]); };
+  const removeTag = (t) => setTags(tags.filter(x => x !== t));
 
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
       padding: 16, background: "rgba(2,6,16,0.62)", backdropFilter: "blur(4px)", animation: "overlayIn .2s ease" }}>
-      <div onMouseDown={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "var(--surface-solid)",
+      <div onMouseDown={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "calc(100vh - 32px)", display: "flex", flexDirection: "column", background: "var(--surface-solid)",
         border: "1px solid var(--border-strong)", borderRadius: 22, boxShadow: "var(--shadow)", animation: "pop .22s cubic-bezier(.3,1.1,.4,1)" }}>
         {/* header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", flexShrink: 0 }}>
           <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>{initial ? "編輯記錄" : "新增記錄"}</h2>
           <IconBtn name="close" onClick={onClose} title="關閉" />
         </div>
 
-        <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto" }}>
           {/* type toggle */}
           <div style={{ display: "flex", gap: 8 }}>
             {[{ v: "expense", l: "支出", c: "var(--expense)" }, { v: "income", l: "收入", c: "var(--income)" }].map(o => {
@@ -409,8 +421,8 @@ function TxModal({ initial, onSave, onClose, onDelete }) {
           {/* amount */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px", borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
             <span className="num" style={{ fontSize: 24, color: "var(--text-faint)", fontWeight: 500 }}>NT$</span>
-            <input autoFocus type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0"
-              onKeyDown={e => { if (e.key === "Enter") submit(); }}
+            <input ref={amtRef} autoFocus type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0"
+              onKeyDown={e => { if (e.key === "Enter") submit(false); }}
               className="num" style={{ flex: 1, background: "none", border: "none", outline: "none", color: type === "income" ? "var(--income)" : "var(--text)",
                 fontSize: 30, fontWeight: 600, width: "100%", textAlign: "right" }} />
           </div>
@@ -433,27 +445,59 @@ function TxModal({ initial, onSave, onClose, onDelete }) {
             </div>
           </div>
 
-          {/* date + note */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 170px" }}>
-              <Label>日期</Label>
-              <DatePickerField value={date} onChange={setDate} min={MIN_MONTH + "-01"} max={MAX_MONTH + "-30"} />
+          {/* note + tags */}
+          <div>
+            <Label>備註</Label>
+            <input value={note} onChange={e => setNote(e.target.value)} placeholder="選填,可點下方標籤快速帶入"
+              onKeyDown={e => { if (e.key === "Enter") submit(false); }} style={fieldStyle} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10, alignItems: "center" }}>
+              {tags.map(t => {
+                const active = note === t;
+                return (
+                  <button key={t} onClick={() => editTags ? removeTag(t) : setNote(t)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500,
+                    border: "1px solid " + (active && !editTags ? "var(--accent)" : "var(--border)"),
+                    color: editTags ? "var(--expense)" : active ? "var(--accent)" : "var(--text-dim)",
+                    background: active && !editTags ? "var(--accent-soft)" : "var(--surface-2)", transition: "all .12s" }}>
+                    {editTags && <Icon name="close" size={12} stroke={2.4} />}{t}
+                  </button>
+                );
+              })}
+              {!editTags && noteTrim && !tags.includes(noteTrim) && (
+                <button onClick={addTag} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+                  border: "1px dashed var(--border-strong)", color: "var(--text-dim)", background: "transparent" }}>
+                  <Icon name="plus" size={12} stroke={2.6} /> 存成標籤
+                </button>
+              )}
+              <button onClick={() => setEditTags(e => !e)} title={editTags ? "完成" : "管理標籤"} style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center",
+                color: editTags ? "var(--accent)" : "var(--text-faint)", background: editTags ? "var(--accent-soft)" : "transparent" }}>
+                <Icon name={editTags ? "check" : "edit"} size={15} />
+              </button>
             </div>
-            <div style={{ flex: "2 1 190px" }}>
-              <Label>備註</Label>
-              <input value={note} onChange={e => setNote(e.target.value)} placeholder="選填,例如:午餐、加油…"
-                onKeyDown={e => { if (e.key === "Enter") submit(); }} style={fieldStyle} />
+          </div>
+
+          {/* date — inline calendar */}
+          <div>
+            <Label>日期</Label>
+            <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px" }}>
+              <MiniCalendar initialMonth={date.slice(0, 7)} value={date} min={MIN_MONTH + "-01"} max={MAX_MONTH + "-30"} onSelect={setDate} />
             </div>
           </div>
 
           {/* actions */}
-          <div style={{ display: "flex", gap: 10, marginTop: 2 }}>
+          <div style={{ display: "flex", gap: 10, marginTop: 2, alignItems: "center" }}>
             {onDelete && <button onClick={onDelete} style={{ padding: "12px 16px", borderRadius: 12, color: "var(--expense)",
               border: "1px solid var(--border)", fontSize: 14, fontWeight: 600 }}><Icon name="trash" size={17} /></button>}
-            <button onClick={submit} disabled={!valid} style={{ flex: 1, padding: "13px", borderRadius: 12, fontSize: 15, fontWeight: 700,
+            {!initial && (
+              <button onClick={() => submit(true)} disabled={!valid} style={{ padding: "13px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
+                border: "1px solid " + (valid ? "var(--border-strong)" : "var(--border)"), color: valid ? "var(--text)" : "var(--text-faint)",
+                background: flash ? "color-mix(in srgb, var(--income) 16%, transparent)" : "var(--surface)", cursor: valid ? "pointer" : "not-allowed", transition: "all .15s", whiteSpace: "nowrap" }}>
+                {flash ? "已新增 ✓" : "儲存並繼續"}
+              </button>
+            )}
+            <button onClick={() => submit(false)} disabled={!valid} style={{ flex: 1, padding: "13px", borderRadius: 12, fontSize: 15, fontWeight: 700,
               background: valid ? "var(--accent)" : "var(--surface-2)", color: valid ? "var(--bg)" : "var(--text-faint)",
               cursor: valid ? "pointer" : "not-allowed", transition: "all .15s" }}>
-              {initial ? "儲存變更" : "新增記錄"}
+              {initial ? "儲存變更" : "完成"}
             </button>
           </div>
         </div>

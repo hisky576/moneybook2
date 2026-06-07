@@ -10,11 +10,14 @@ const LS = { tx: "ledger.tx.v1", settings: "ledger.settings.v1", theme: "ledger.
 const load = (k, fb) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-const DEFAULT_SETTINGS = { budgets: DEFAULT_BUDGETS, recurring: [], todos: [] };
+const DEFAULT_SETTINGS = { budgets: DEFAULT_BUDGETS, recurring: [], todos: [], tags: DEFAULT_TAGS, savings: [], savingsGoal: 0 };
 const mergeSettings = (s) => ({
   budgets: { ...DEFAULT_BUDGETS, ...(s && s.budgets) },
   recurring: (s && s.recurring) || [],
   todos: (s && s.todos) || [],
+  tags: (s && s.tags) || DEFAULT_TAGS,
+  savings: (s && s.savings) || [],
+  savingsGoal: (s && s.savingsGoal) || 0,
 });
 
 // ---- supabase client ----
@@ -140,12 +143,18 @@ function useLedger(ready) {
   const setBudgets = (b) => patchSettings({ budgets: b });
   const setRecurring = (r) => patchSettings({ recurring: r });
   const setTodos = (t) => patchSettings({ todos: t });
+  const setTags = (t) => patchSettings({ tags: t });
+  const setSavings = (s) => patchSettings({ savings: s });
+  const setSavingsGoal = (g) => patchSettings({ savingsGoal: g });
 
   return {
     txs, addTx, updateTx, delTx, loading, error,
     budgets: settings.budgets, setBudgets,
     recurring: settings.recurring, setRecurring,
     todos: settings.todos, setTodos,
+    tags: settings.tags, setTags,
+    savings: settings.savings, setSavings,
+    savingsGoal: settings.savingsGoal, setSavingsGoal,
   };
 }
 

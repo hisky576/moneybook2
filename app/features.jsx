@@ -18,6 +18,21 @@ function advanceDate(iso, repeat) {
 }
 const uid = () => "id" + Date.now() + Math.floor(Math.random() * 9999);
 
+function toggleTodoList(todos, todo) {
+  if (todo.repeat && todo.repeat !== "none") {
+    const base = todo.due && todo.due >= todayISO ? todo.due : todayISO;
+    return todos.map(t => t.id === todo.id ? { ...t, due: advanceDate(base, todo.repeat) } : t);
+  }
+  return todos.map(t => t.id === todo.id ? { ...t, done: !t.done } : t);
+}
+
+// upcoming/overdue todos for the dashboard reminder (overdue first, then soonest)
+function upcomingTodos(todos, limit = 5) {
+  return todos.filter(t => !t.done)
+    .sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : 1)
+    .slice(0, limit);
+}
+
 // ============================================================
 // Recurring (固定收支)
 // ============================================================
@@ -132,14 +147,7 @@ function Todos({ todos, setTodos }) {
     setModal(null);
   };
   const remove = (t) => setTodos(todos.filter(x => x.id !== t.id));
-  const toggle = (todo) => {
-    if (todo.repeat && todo.repeat !== "none") {
-      const base = todo.due && todo.due >= todayISO ? todo.due : todayISO;
-      setTodos(todos.map(t => t.id === todo.id ? { ...t, due: advanceDate(base, todo.repeat) } : t));
-    } else {
-      setTodos(todos.map(t => t.id === todo.id ? { ...t, done: !t.done } : t));
-    }
-  };
+  const toggle = (todo) => setTodos(toggleTodoList(todos, todo));
 
   const active = todos.filter(t => !t.done);
   const byDue = (a, b) => (a.due || "9") < (b.due || "9") ? -1 : 1;
@@ -217,4 +225,4 @@ function TodoRow({ todo, onToggle, onEdit, onDelete }) {
 const ghostBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border-strong)", color: "var(--text)", fontSize: 13, fontWeight: 600 };
 const chipBtn = { display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 9, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 12.5, fontWeight: 600 };
 
-Object.assign(window, { Recurring, Todos, REPEATS, REPEAT_LABEL, advanceDate, daysInMonthKey, ghostBtn, chipBtn, uid });
+Object.assign(window, { Recurring, Todos, REPEATS, REPEAT_LABEL, advanceDate, daysInMonthKey, ghostBtn, chipBtn, uid, toggleTodoList, upcomingTodos });

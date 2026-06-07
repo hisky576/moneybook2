@@ -68,17 +68,16 @@ const Store = {
     return mergeSettings(data && data.data);
   },
   async saveSettings(next) {
-    const { data: u } = await sb.auth.getUser();
-    if (!u || !u.user) return;
-    const { error } = await sb.from("app_settings").upsert({ user_id: u.user.id, data: next }, { onConflict: "user_id" });
+    const { error } = await sb.from("app_settings").upsert({ id: 1, data: next }, { onConflict: "id" });
     if (error) throw error;
   },
 };
 
 // ============================================================
 // useLedger — owns txs + settings, switches cloud/local
+//   ready: in cloud mode, whether we're cleared to load (logged in / shared)
 // ============================================================
-function useLedger(session) {
+function useLedger(ready) {
   const cloud = Store.cloud;
   const [txs, setTxs] = useStateS([]);
   const [settings, setSettings] = useStateS(DEFAULT_SETTINGS);
@@ -87,12 +86,10 @@ function useLedger(session) {
   const sRef = useRefS(settings);
   useEffectS(() => { sRef.current = settings; }, [settings]);
 
-  const uid = session && session.user ? session.user.id : null;
-
   useEffectS(() => {
     let alive = true;
     if (cloud) {
-      if (!uid) { setTxs([]); setSettings(DEFAULT_SETTINGS); return; }
+      if (!ready) { setTxs([]); setSettings(DEFAULT_SETTINGS); return; }
       setLoading(true); setError(null);
       (async () => {
         try {
@@ -106,7 +103,7 @@ function useLedger(session) {
       setSettings(mergeSettings(load(LS.settings, DEFAULT_SETTINGS)));
     }
     return () => { alive = false; };
-  }, [cloud, uid]);
+  }, [cloud, ready]);
 
   useEffectS(() => { if (!cloud) save(LS.tx, txs); }, [txs, cloud]);
 

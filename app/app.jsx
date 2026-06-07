@@ -44,16 +44,21 @@ function App() {
   const [modal, setModal] = useState(null); // null | {tx} (tx null => new)
 
   // ---- auth ----
+  const emailLogin = CLOUD_ENABLED && LOGIN_MODE === "email";
+  const needPass = CLOUD_ENABLED && LOGIN_MODE === "none" && !!PASSCODE;
   const [session, setSession] = useState(undefined); // undefined=unknown, null=out, obj=in
-  const [authReady, setAuthReady] = useState(!CLOUD_ENABLED);
+  const [authReady, setAuthReady] = useState(!emailLogin);
+  const [passOK, setPassOK] = useState(() => !needPass || sessionStorage.getItem("ledger.pass") === PASSCODE);
   useEffect(() => {
-    if (!CLOUD_ENABLED) { setSession(null); setAuthReady(true); return; }
+    if (!emailLogin) { setAuthReady(true); return; }
     Store.getSession().then(s => { setSession(s); setAuthReady(true); });
     return Store.onAuth(s => setSession(s));
   }, []);
 
+  const ready = !CLOUD_ENABLED ? true : (emailLogin ? !!session : (!needPass || passOK));
+
   // ---- data ----
-  const L = useLedger(CLOUD_ENABLED ? session : null);
+  const L = useLedger(ready);
   const { txs, budgets, setBudgets, recurring, setRecurring, todos, setTodos } = L;
 
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); save(LS.theme, theme); }, [theme]);
@@ -90,8 +95,9 @@ function App() {
   const titles = { dashboard: "儀表板", transactions: "交易記錄", recurring: "固定收支", todos: "待辦事項", budget: "預算管理", reports: "財務報表" };
 
   // ---- auth gating (cloud mode only) ----
-  if (CLOUD_ENABLED && !authReady) return <Splash theme={theme} setTheme={setTheme} />;
-  if (CLOUD_ENABLED && !session) return <Login theme={theme} setTheme={setTheme} />;
+  if (emailLogin && !authReady) return <Splash theme={theme} setTheme={setTheme} />;
+  if (emailLogin && !session) return <Login theme={theme} setTheme={setTheme} />;
+  if (needPass && !passOK) return <Passcode theme={theme} onOk={() => { sessionStorage.setItem("ledger.pass", PASSCODE); setPassOK(true); }} />;
 
   return (
     <div className="app-root">
@@ -109,7 +115,8 @@ function App() {
               </button>
             ))}
           </nav>
-          {CLOUD_ENABLED && session && <Account email={session.user.email} />}
+          {emailLogin && session && <Account email={session.user.email} />}
+          {CLOUD_ENABLED && !emailLogin && <CloudBadge />}
           <ThemeSwitch theme={theme} setTheme={setTheme} />
         </aside>
 
@@ -175,6 +182,49 @@ function Account({ email }) {
         style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: h ? "var(--expense)" : "var(--text-faint)", background: h ? "var(--surface-2)" : "transparent" }}>
         <Icon name="power" size={16} />
       </button>
+    </div>
+  );
+}
+
+function CloudBadge() {
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 8, display: "flex", alignItems: "center", gap: 9, padding: "12px 6px 0" }}>
+      <span style={{ width: 24, height: 24, borderRadius: 7, display: "grid", placeItems: "center", background: "color-mix(in srgb, var(--income) 15%, transparent)", color: "var(--income)" }}>
+        <Icon name="check" size={14} stroke={2.6} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, color: "var(--text-dim)", fontWeight: 500 }}>雲端同步中</div>
+        <div style={{ fontSize: 10.5, color: "var(--text-faint)" }}>資料自動儲存到雲端</div>
+      </div>
+    </div>
+  );
+}
+
+function Passcode({ theme, onOk }) {
+  const [code, setCode] = useState("");
+  const [shake, setShake] = useState(false);
+  useEffect(() => { document.documentElement.setAttribute("data-theme", theme); }, [theme]);
+  const submit = () => {
+    if (code === PASSCODE) onOk();
+    else { setShake(true); setCode(""); setTimeout(() => setShake(false), 400); }
+  };
+  return (
+    <div className="app-root" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 320, animation: shake ? "shake .4s" : "fadeUp .4s ease" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 24 }}>
+          <div style={{ width: 52, height: 52, borderRadius: 16, display: "grid", placeItems: "center", background: "var(--accent)", color: "var(--bg)" }}>
+            <Icon name="coins" size={28} stroke={2.2} />
+          </div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--text)" }}>記帳本</div>
+        </div>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: 22, boxShadow: "var(--shadow)", display: "flex", flexDirection: "column", gap: 14 }}>
+          <Label>請輸入通行碼</Label>
+          <input autoFocus type="password" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submit(); }}
+            style={{ ...fieldStyle, fontSize: 18, textAlign: "center", letterSpacing: ".3em" }} />
+          <button onClick={submit} style={{ padding: "13px", borderRadius: 12, fontSize: 15, fontWeight: 700, background: "var(--accent)", color: "var(--bg)" }}>進入</button>
+        </div>
+      </div>
     </div>
   );
 }
